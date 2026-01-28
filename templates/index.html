@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+
+{% block title %}Home - CivicPulse{% endblock %}
+
+{% block content %}
+<div class="hero-section text-center py-5 bg-light rounded-3 mb-5">
+    <h1 class="display-4 fw-bold text-primary">
+        <i class="fas fa-heartbeat"></i> Welcome to CivicPulse
+    </h1>
+    <p class="lead">AI-Powered Community Complaint & Governance Analytics Platform</p>
+    <p class="text-muted">Making civic engagement smarter, faster, and more effective.</p>
+    
+    {% if 'user_id' not in session %}
+    <div class="mt-4">
+        <a href="{{ url_for('register') }}" class="btn btn-primary btn-lg px-4 me-3">
+            <i class="fas fa-user-plus"></i> Join Now
+        </a>
+        <a href="{{ url_for('login') }}" class="btn btn-outline-primary btn-lg px-4">
+            <i class="fas fa-sign-in-alt"></i> Login
+        </a>
+    </div>
+    {% else %}
+    <div class="mt-4">
+        <a href="{{ url_for('submit_complaint') }}" class="btn btn-primary btn-lg px-4">
+            <i class="fas fa-plus-circle"></i> Submit New Complaint
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<div class="row g-4">
+    <!-- Features -->
+    <div class="col-md-4">
+        <div class="card h-100 border-0 shadow-sm">
+            <div class="card-body text-center">
+                <div class="feature-icon bg-primary bg-gradient text-white rounded-circle p-3 mb-3 mx-auto" style="width: 70px; height: 70px;">
+                    <i class="fas fa-robot fa-2x"></i>
+                </div>
+                <h3 class="card-title">AI-Powered</h3>
+                <p class="card-text">
+                    Smart categorization, priority prediction, and spam detection using advanced machine learning algorithms.
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card h-100 border-0 shadow-sm">
+            <div class="card-body text-center">
+                <div class="feature-icon bg-success bg-gradient text-white rounded-circle p-3 mb-3 mx-auto" style="width: 70px; height: 70px;">
+                    <i class="fas fa-map-marked-alt fa-2x"></i>
+                </div>
+                <h3 class="card-title">Geospatial Tracking</h3>
+                <p class="card-text">
+                    Pinpoint complaint locations on interactive maps. View high-density problem areas in real-time.
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card h-100 border-0 shadow-sm">
+            <div class="card-body text-center">
+                <div class="feature-icon bg-info bg-gradient text-white rounded-circle p-3 mb-3 mx-auto" style="width: 70px; height: 70px;">
+                    <i class="fas fa-chart-line fa-2x"></i>
+                </div>
+                <h3 class="card-title">Advanced Analytics</h3>
+                <p class="card-text">
+                    Comprehensive dashboards with real-time insights, performance metrics, and SLA tracking.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Stats Section -->
+<div class="row mt-5 g-4">
+    <div class="col-md-3 col-6">
+        <div class="card text-center">
+            <div class="card-body">
+                <h2 class="display-6 text-primary" id="totalComplaints">0</h2>
+                <p class="text-muted">Total Complaints</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="card text-center">
+            <div class="card-body">
+                <h2 class="display-6 text-success" id="resolvedComplaints">0</h2>
+                <p class="text-muted">Resolved</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="card text-center">
+            <div class="card-body">
+                <h2 class="display-6 text-warning" id="inProgressComplaints">0</h2>
+                <p class="text-muted">In Progress</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="card text-center">
+            <div class="card-body">
+                <h2 class="display-6 text-info" id="activeUsers">0</h2>
+                <p class="text-muted">Active Users</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- How It Works -->
+<div class="mt-5">
+    <h2 class="text-center mb-4">How It Works</h2>
+    <div class="row g-4">
+        <div class="col-lg-3 col-md-6">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <div class="step-number bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 50px; height: 50px;">
+                        <strong>1</strong>
+                    </div>
+                    <h5>Register & Login</h5>
+                    <p>Create your account with basic information</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <div class="step-number bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 50px; height: 50px;">
+                        <strong>2</strong>
+                    </div>
+                    <h5>Submit Complaint</h5>
+                    <p>Report issues with details, location, and photos</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <div class="step-number bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 50px; height: 50px;">
+                        <strong>3</strong>
+                    </div>
+                    <h5>AI Processing</h5>
+                    <p>Our AI analyzes and routes to the right department</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <div class="step-number bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 50px; height: 50px;">
+                        <strong>4</strong>
+                    </div>
+                    <h5>Track & Resolve</h5>
+                    <p>Monitor progress and get notified upon resolution</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Fetch and display stats
+fetch('/api/stats')
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('totalComplaints').textContent = data.total_complaints;
+        document.getElementById('resolvedComplaints').textContent = data.resolved_complaints;
+        document.getElementById('inProgressComplaints').textContent = data.in_progress;
+        document.getElementById('activeUsers').textContent = data.active_users;
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,334 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Complaints - CivicPulse Admin{% endblock %}
+
+{% block extra_css %}
+<style>
+    body {
+        background: #f4f7fb;
+    }
+
+    h2, h5 {
+        letter-spacing: -0.4px;
+    }
+
+    .card {
+        border-radius: 18px;
+        transition: all 0.3s ease;
+    }
+
+    .card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 18px 40px rgba(0,0,0,0.08);
+    }
+
+    .form-control, .form-select {
+        border-radius: 12px;
+    }
+
+    .input-group-text {
+        border-radius: 12px 0 0 12px;
+    }
+
+    .table {
+        background: white;
+        border-radius: 16px;
+        overflow: hidden;
+    }
+
+    thead th {
+        font-weight: 600;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+
+    tbody tr {
+        transition: all 0.25s ease;
+    }
+
+    tbody tr:hover {
+        background-color: #f1f5ff;
+        transform: scale(1.002);
+    }
+
+    .badge {
+        border-radius: 12px;
+        padding: 0.45em 0.7em;
+        font-size: 0.75rem;
+    }
+
+    .btn {
+        border-radius: 30px;
+        padding: 6px 14px;
+    }
+
+    .btn-outline-primary:hover {
+        background: linear-gradient(135deg, #0d6efd, #4dabf7);
+        color: #fff;
+        border-color: transparent;
+    }
+
+    .form-select-sm {
+        border-radius: 10px;
+        font-size: 0.8rem;
+    }
+
+    .empty-state i {
+        opacity: 0.4;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- HEADER -->
+<div class="row mb-4 align-items-center">
+    <div class="col-md-9">
+        <h2 class="fw-bold mb-1">
+            <i class="fas fa-tasks text-primary"></i> Manage All Complaints
+        </h2>
+        <p class="text-muted mb-0">
+            Review, filter, and update complaint status in real time
+        </p>
+    </div>
+
+    <div class="col-md-3">
+        <div class="input-group shadow-sm">
+            <span class="input-group-text bg-white">
+                <i class="fas fa-search text-muted"></i>
+            </span>
+            <input type="text"
+                   class="form-control"
+                   id="searchInput"
+                   placeholder="Search complaints...">
+        </div>
+    </div>
+</div>
+
+<!-- FILTERS -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+        <div class="row g-3 align-items-end">
+
+            <div class="col-md-3">
+                <label class="form-label small text-muted">Status</label>
+                <select class="form-select" id="filterStatus">
+                    <option value="">All Status</option>
+                    <option value="Submitted">Submitted</option>
+                    <option value="In Review">In Review</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Resolved">Resolved</option>
+                </select>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label small text-muted">Category</label>
+                <select class="form-select" id="filterCategory">
+                    <option value="">All Categories</option>
+                    <option value="Roads">Roads</option>
+                    <option value="Water">Water</option>
+                    <option value="Electricity">Electricity</option>
+                    <option value="Waste">Waste</option>
+                    <option value="Parks">Parks</option>
+                    <option value="Safety">Safety</option>
+                    <option value="Construction">Construction</option>
+                </select>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label small text-muted">Priority</label>
+                <select class="form-select" id="filterPriority">
+                    <option value="">All Priorities</option>
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                </select>
+            </div>
+
+            <div class="col-md-3 d-grid">
+                <button class="btn btn-primary" onclick="applyFilters()">
+                    <i class="fas fa-filter"></i> Apply Filters
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+{% if complaints %}
+<div class="table-responsive shadow-sm rounded">
+    <table class="table table-hover align-middle mb-0">
+        <thead class="table-primary">
+            <tr>
+                <th>ID</th>
+                <th>Title</th>
+                <th>Submitted By</th>
+                <th>Category</th>
+                <th>Status</th>
+                <th>Priority</th>
+                <th>Upvotes</th>
+                <th>Created</th>
+                <th class="text-center">Actions</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for complaint in complaints %}
+            <tr>
+                <td><strong>#{{ complaint[0] }}</strong></td>
+                <td>{{ complaint[2] }}</td>
+                <td>{{ complaint[16] }}</td>
+
+                <td><span class="badge bg-info">{{ complaint[4] }}</span></td>
+
+                <td style="min-width:150px">
+                    <select class="form-select form-select-sm"
+                            onchange="updateComplaintStatus({{ complaint[0] }}, this.value)">
+                        {% for s in ['Submitted','In Review','In Progress','Resolved'] %}
+                        <option value="{{ s }}" {% if complaint[10]==s %}selected{% endif %}>{{ s }}</option>
+                        {% endfor %}
+                    </select>
+                </td>
+
+                <td>
+                    {% if complaint[11]=='High' %}
+                        <span class="badge bg-danger">High</span>
+                    {% elif complaint[11]=='Medium' %}
+                        <span class="badge bg-warning">Medium</span>
+                    {% else %}
+                        <span class="badge bg-success">Low</span>
+                    {% endif %}
+                </td>
+
+                <td><i class="fas fa-thumbs-up text-success"></i> {{ complaint[12] }}</td>
+                <td><small class="text-muted">{{ complaint[14] }}</small></td>
+
+                <td class="text-center">
+                    <a href="{{ url_for('complaint_detail', id=complaint[0]) }}"
+                       class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-eye"></i>
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="card border-0 shadow-sm text-center py-5 empty-state">
+    <i class="fas fa-inbox fa-3x mb-3"></i>
+    <h4>No Complaints Found</h4>
+    <p class="text-muted">There are currently no complaints in the system.</p>
+</div>
+{% endif %}
+
+<!-- WORKING JS -->
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const searchInput = document.getElementById("searchInput");
+    const filterStatus = document.getElementById("filterStatus");
+    const filterCategory = document.getElementById("filterCategory");
+    const filterPriority = document.getElementById("filterPriority");
+    const rows = document.querySelectorAll("tbody tr");
+
+    // Search functionality
+    searchInput.addEventListener("keyup", applyAllFilters);
+    filterStatus.addEventListener("change", applyAllFilters);
+    filterCategory.addEventListener("change", applyAllFilters);
+    filterPriority.addEventListener("change", applyAllFilters);
+});
+
+function applyAllFilters() {
+    const searchInput = document.getElementById("searchInput");
+    const filterStatus = document.getElementById("filterStatus");
+    const filterCategory = document.getElementById("filterCategory");
+    const filterPriority = document.getElementById("filterPriority");
+
+    const searchQuery = searchInput.value.toLowerCase();
+    const statusFilter = filterStatus.value.toLowerCase();
+    const categoryFilter = filterCategory.value.toLowerCase();
+    const priorityFilter = filterPriority.value.toLowerCase();
+
+    document.querySelectorAll("tbody tr").forEach(row => {
+        try {
+            // Get cell values
+            const titleCell = row.children[1]?.innerText.toLowerCase() || "";
+            const userCell = row.children[2]?.innerText.toLowerCase() || "";
+            const categoryCell = row.children[3]?.innerText.toLowerCase() || "";
+            const statusSelect = row.querySelector("select");
+            const statusValue = statusSelect ? statusSelect.value.toLowerCase() : "";
+            const priorityCell = row.children[5]?.innerText.toLowerCase() || "";
+
+            // Apply search filter
+            const matchesSearch = titleCell.includes(searchQuery) || 
+                                 userCell.includes(searchQuery) ||
+                                 categoryCell.includes(searchQuery);
+
+            // Apply status filter
+            const matchesStatus = !statusFilter || statusFilter === "" || statusValue.includes(statusFilter);
+
+            // Apply category filter
+            const matchesCategory = !categoryFilter || categoryFilter === "" || categoryCell.includes(categoryFilter);
+
+            // Apply priority filter
+            const matchesPriority = !priorityFilter || priorityFilter === "" || priorityCell.includes(priorityFilter);
+
+            // Show row if all filters match
+            row.style.display = (matchesSearch && matchesStatus && matchesCategory && matchesPriority) ? "" : "none";
+        } catch (e) {
+            console.error("Filter error:", e);
+        }
+    });
+}
+
+function updateComplaintStatus(id, status) {
+    const fd = new FormData();
+    fd.append("status", status);
+
+    fetch(`/admin/complaint/${id}/update`, {
+        method: "POST",
+        body: fd
+    })
+    .then(r => r.json())
+    .then(d => {
+        showToast(d.success ? "Status updated successfully" : "Update failed", d.success ? "success" : "danger");
+        if (d.success) {
+            applyAllFilters(); // Refresh filters after status update
+        }
+    })
+    .catch(err => {
+        console.error("Error:", err);
+        showToast("Server error occurred", "danger");
+    });
+}
+
+function applyFilters() {
+    applyAllFilters();
+}
+
+function showToast(msg, type) {
+    const toast = document.createElement("div");
+    toast.className = `alert alert-${type} position-fixed top-0 end-0 m-4 shadow`;
+    toast.style.zIndex = 9999;
+    toast.style.minWidth = "250px";
+    toast.innerHTML = `
+        <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'} me-2"></i>
+        ${msg}
+        <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
+    `;
+    document.body.appendChild(toast);
+    setTimeout(() => {
+        if (toast.parentElement) {
+            toast.remove();
+        }
+    }, 3000);
+}
+
+// Auto-refresh complaints list every 8 seconds (8000ms)
+setInterval(function() {
+    location.reload();
+}, 8000);
+</script>
+
+{% endblock %}

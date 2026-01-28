@@ -1,0 +1,587 @@
+{% extends "base.html" %}
+
+{% block title %}My Dashboard - CivicPulse{% endblock %}
+
+{% block extra_css %}
+<style>
+    body {
+        background: #f4f7fb;
+    }
+
+    h2 {
+        letter-spacing: -0.4px;
+    }
+
+    .card {
+        border-radius: 18px;
+        transition: all 0.3s ease;
+    }
+
+    .card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 18px 40px rgba(0,0,0,0.08);
+    }
+
+    /* Table */
+    .table {
+        background: #fff;
+        border-radius: 16px;
+        overflow: hidden;
+    }
+
+    thead th {
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        font-weight: 600;
+    }
+
+    tbody tr {
+        transition: all 0.25s ease;
+    }
+
+    tbody tr:hover {
+        background-color: #f1f5ff;
+    }
+
+    .badge {
+        border-radius: 12px;
+        padding: 0.45em 0.75em;
+        font-size: 0.75rem;
+    }
+
+    .btn {
+        border-radius: 30px;
+        padding: 6px 14px;
+        transition: all 0.3s ease;
+    }
+
+    .btn-outline-primary:hover {
+        background: linear-gradient(135deg, #0d6efd, #4dabf7);
+        color: #fff;
+        border-color: transparent;
+    }
+
+    .empty-state i {
+        opacity: 0.4;
+    }
+
+    /* Chatbot Styles */
+    .chatbot-widget {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 1000;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+
+    .chatbot-toggle {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        color: white;
+        font-size: 24px;
+        cursor: pointer;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .chatbot-toggle:hover {
+        transform: scale(1.1);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+    }
+
+    .chatbot-toggle.open {
+        display: none;
+    }
+
+    .chatbot-container {
+        position: fixed;
+        bottom: 90px;
+        right: 20px;
+        width: 400px;
+        max-width: 90vw;
+        height: 600px;
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 5px 40px rgba(0,0,0,0.16);
+        display: flex;
+        flex-direction: column;
+        opacity: 0;
+        transform: translateY(20px) scale(0.95);
+        pointer-events: none;
+        transition: all 0.3s ease;
+        z-index: 1001;
+    }
+
+    .chatbot-container.active {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        pointer-events: auto;
+    }
+
+    .chatbot-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px;
+        border-radius: 20px 20px 0 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .chatbot-header h5 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 600;
+    }
+
+    .chatbot-close {
+        background: rgba(255,255,255,0.3);
+        border: none;
+        color: white;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+    }
+
+    .chatbot-close:hover {
+        background: rgba(255,255,255,0.5);
+    }
+
+    .chatbot-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .chatbot-messages::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .chatbot-messages::-webkit-scrollbar-track {
+        background: #f1f5ff;
+    }
+
+    .chatbot-messages::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 3px;
+    }
+
+    .message {
+        display: flex;
+        margin-bottom: 8px;
+        animation: slideIn 0.3s ease;
+    }
+
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .message.user {
+        justify-content: flex-end;
+    }
+
+    .message.bot {
+        justify-content: flex-start;
+    }
+
+    .message-content {
+        max-width: 80%;
+        padding: 12px 16px;
+        border-radius: 12px;
+        word-wrap: break-word;
+        line-height: 1.4;
+        font-size: 14px;
+    }
+
+    .message.user .message-content {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 12px 4px 12px 12px;
+    }
+
+    .message.bot .message-content {
+        background: #f1f5ff;
+        color: #1e293b;
+        border-radius: 4px 12px 12px 12px;
+    }
+
+    .chatbot-input-area {
+        padding: 15px;
+        border-top: 1px solid #e2e8f0;
+        display: flex;
+        gap: 10px;
+    }
+
+    .chatbot-input {
+        flex: 1;
+        border: 1px solid #e2e8f0;
+        border-radius: 25px;
+        padding: 10px 16px;
+        font-size: 14px;
+        outline: none;
+        transition: all 0.2s ease;
+    }
+
+    .chatbot-input:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .chatbot-send {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+    }
+
+    .chatbot-send:hover:not(:disabled) {
+        transform: scale(1.05);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .chatbot-send:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .loading-dots {
+        display: flex;
+        gap: 4px;
+        align-items: center;
+    }
+
+    .loading-dots span {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #667eea;
+        animation: bounce 1.4s infinite;
+    }
+
+    .loading-dots span:nth-child(2) {
+        animation-delay: 0.2s;
+    }
+
+    .loading-dots span:nth-child(3) {
+        animation-delay: 0.4s;
+    }
+
+    @keyframes bounce {
+        0%, 60%, 100% {
+            opacity: 0.6;
+            transform: translateY(0);
+        }
+        30% {
+            opacity: 1;
+            transform: translateY(-10px);
+        }
+    }
+
+    @media (max-width: 640px) {
+        .chatbot-container {
+            width: calc(100vw - 20px);
+            height: 70vh;
+            bottom: 80px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- HEADER -->
+<div class="row mb-4 align-items-center">
+    <div class="col-md-8">
+        <h2 class="fw-bold mb-1">
+            <i class="fas fa-chart-line text-primary"></i> My Complaints
+        </h2>
+        <p class="text-muted mb-0">
+            Track the status and progress of your civic issues
+        </p>
+    </div>
+
+    <div class="col-md-4 text-end">
+        <a href="{{ url_for('submit_complaint') }}"
+           class="btn btn-primary btn-lg">
+            <i class="fas fa-plus-circle"></i> New Complaint
+        </a>
+    </div>
+</div>
+
+{% if complaints %}
+
+<!-- COMPLAINTS TABLE -->
+<div class="table-responsive shadow-sm rounded">
+    <table class="table table-hover align-middle mb-0">
+        <thead class="table-primary">
+            <tr>
+                <th>ID</th>
+                <th>Title</th>
+                <th>Category</th>
+                <th>Status</th>
+                <th>Priority</th>
+                <th>Upvotes</th>
+                <th>Submitted</th>
+                <th class="text-center">Action</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for complaint in complaints %}
+            <tr>
+                <td><strong>#{{ complaint[0] }}</strong></td>
+
+                <td class="fw-bold">
+                    {{ complaint[2] }}
+                </td>
+
+                <td>
+                    <span class="badge bg-info">
+                        {{ complaint[4] }}
+                    </span>
+                </td>
+
+                <td>
+                    {% if complaint[10] == 'Resolved' %}
+                        <span class="badge bg-success">{{ complaint[10] }}</span>
+                    {% elif complaint[10] == 'In Progress' %}
+                        <span class="badge bg-warning">{{ complaint[10] }}</span>
+                    {% elif complaint[10] == 'In Review' %}
+                        <span class="badge bg-primary">{{ complaint[10] }}</span>
+                    {% else %}
+                        <span class="badge bg-secondary">{{ complaint[10] }}</span>
+                    {% endif %}
+                </td>
+
+                <td>
+                    {% if complaint[11] == 'High' %}
+                        <span class="badge bg-danger">{{ complaint[11] }}</span>
+                    {% elif complaint[11] == 'Medium' %}
+                        <span class="badge bg-warning">{{ complaint[11] }}</span>
+                    {% else %}
+                        <span class="badge bg-success">{{ complaint[11] }}</span>
+                    {% endif %}
+                </td>
+
+                <td>
+                    <i class="fas fa-thumbs-up text-success"></i>
+                    <strong>{{ complaint[12] }}</strong>
+                </td>
+
+                <td>
+                    <small class="text-muted">
+                        {{ complaint[14] | default('N/A') }}
+                    </small>
+                </td>
+
+                <td class="text-center">
+                    <a href="{{ url_for('complaint_detail', id=complaint[0]) }}"
+                       class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-eye"></i> View
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% else %}
+
+<!-- EMPTY STATE -->
+<div class="card border-0 shadow-sm text-center py-5 empty-state">
+    <i class="fas fa-inbox fa-3x mb-3"></i>
+    <h4>No Complaints Yet</h4>
+    <p class="text-muted mb-3">
+        You haven’t submitted any complaints so far.
+    </p>
+    <a href="{{ url_for('submit_complaint') }}"
+       class="btn btn-primary btn-lg">
+        <i class="fas fa-plus-circle"></i> Submit Your First Complaint
+    </a>
+</div>
+
+{% endif %}
+
+<!-- AI CHATBOT WIDGET -->
+<div class="chatbot-widget">
+    <button class="chatbot-toggle open" id="chatbotToggle" onclick="toggleChat()">
+        <i class="fas fa-comments"></i>
+    </button>
+    
+    <div class="chatbot-container" id="chatbotContainer">
+        <div class="chatbot-header">
+            <h5><i class="fas fa-robot"></i> CivicPulse Assistant</h5>
+            <button class="chatbot-close" onclick="toggleChat()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="chatbot-messages" id="chatMessages">
+            <div class="message bot">
+                <div class="message-content">
+                    👋 Hello! I'm your CivicPulse Assistant. I can help you with:
+                    <br>• Submitting new complaints
+                    <br>• Tracking your complaints
+                    <br>• Understanding complaint categories
+                    <br>• General civic issues information
+                    <br><br>How can I help you today?
+                </div>
+            </div>
+        </div>
+        
+        <div class="chatbot-input-area">
+            <input 
+                type="text" 
+                class="chatbot-input" 
+                id="chatInput" 
+                placeholder="Type your message..."
+                onkeypress="handleKeyPress(event)">
+            <button class="chatbot-send" id="chatSendBtn" onclick="sendMessage()">
+                <i class="fas fa-paper-plane"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- SCRIPTS -->
+<script>
+let chatHistory = [];
+
+function toggleChat() {
+    const container = document.getElementById('chatbotContainer');
+    const toggle = document.getElementById('chatbotToggle');
+    
+    container.classList.toggle('active');
+    toggle.classList.toggle('open');
+}
+
+function handleKeyPress(event) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendMessage();
+    }
+}
+
+function addMessage(content, sender = 'user') {
+    const messagesDiv = document.getElementById('chatMessages');
+    const messageEl = document.createElement('div');
+    messageEl.className = `message ${sender}`;
+    messageEl.innerHTML = `<div class="message-content">${content}</div>`;
+    messagesDiv.appendChild(messageEl);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+function addLoadingMessage() {
+    const messagesDiv = document.getElementById('chatMessages');
+    const messageEl = document.createElement('div');
+    messageEl.className = 'message bot';
+    messageEl.id = 'loadingMessage';
+    messageEl.innerHTML = `
+        <div class="message-content">
+            <div class="loading-dots">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    `;
+    messagesDiv.appendChild(messageEl);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+function removeLoadingMessage() {
+    const loadingEl = document.getElementById('loadingMessage');
+    if (loadingEl) {
+        loadingEl.remove();
+    }
+}
+
+function sendMessage() {
+    const input = document.getElementById('chatInput');
+    const message = input.value.trim();
+    
+    if (!message) return;
+    
+    // Add user message
+    addMessage(message, 'user');
+    chatHistory.push({ role: 'user', content: message });
+    input.value = '';
+    
+    // Show loading
+    addLoadingMessage();
+    
+    // Send to backend
+    fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            message: message,
+            history: chatHistory.slice(-6) // Keep last 6 messages for context
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        removeLoadingMessage();
+        if (data.success) {
+            const botResponse = data.response;
+            addMessage(botResponse, 'bot');
+            chatHistory.push({ role: 'assistant', content: botResponse });
+        } else {
+            addMessage('Sorry, I encountered an error. Please try again.', 'bot');
+        }
+    })
+    .catch(err => {
+        removeLoadingMessage();
+        console.error('Chat error:', err);
+        addMessage('Sorry, I could not connect to the service. Please try again.', 'bot');
+    });
+}
+
+// Auto-open chat on first visit (optional)
+document.addEventListener('DOMContentLoaded', () => {
+    const hasVisited = localStorage.getItem('civicpulse_chat_visited');
+    if (!hasVisited) {
+        // First time visitor - show chat in 2 seconds
+        setTimeout(() => {
+            // Uncomment to auto-open: toggleChat();
+        }, 2000);
+        localStorage.setItem('civicpulse_chat_visited', 'true');
+    }
+});
+</script>
+
+{% endblock %}

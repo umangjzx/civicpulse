@@ -1,0 +1,584 @@
+{% extends "base.html" %}
+
+{% block title %}Submit Complaint - CivicPulse{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css" />
+<style>
+    body {
+        background: #f4f7fb;
+    }
+
+    h2 {
+        letter-spacing: -0.4px;
+    }
+
+    .card {
+        border-radius: 20px;
+        backdrop-filter: blur(8px);
+        transition: all 0.3s ease;
+    }
+
+    .card:hover {
+        box-shadow: 0 20px 45px rgba(0,0,0,0.08);
+    }
+
+    .form-control,
+    .form-select {
+        border-radius: 14px;
+    }
+
+    .form-control-lg,
+    .form-select-lg {
+        padding: 14px 16px;
+    }
+
+    .form-label {
+        font-size: 0.9rem;
+    }
+
+    .btn-primary {
+        border-radius: 40px;
+        padding: 14px;
+        font-size: 1.05rem;
+        background: linear-gradient(135deg, #0d6efd, #4dabf7);
+        border: none;
+        transition: all 0.3s ease;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(13,110,253,0.4);
+    }
+
+    #imagePreview img {
+        margin-top: 10px;
+        border-radius: 14px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.12);
+        transition: transform 0.3s ease;
+    }
+
+    #imagePreview img:hover {
+        transform: scale(1.03);
+    }
+
+    .ai-hint {
+        background: linear-gradient(135deg, #e7f1ff, #f8fbff);
+        border-radius: 14px;
+        border-left: 4px solid #0d6efd;
+    }
+    
+    /* Location map styling */
+    #locationMap {
+        height: 350px;
+        border-radius: 14px;
+        margin-top: 10px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.12);
+        display: none;
+    }
+    
+    #locationMap.active {
+        display: block;
+    }
+    
+    .location-input-group {
+        position: relative;
+    }
+    
+    .location-feedback {
+        font-size: 0.85rem;
+        margin-top: 6px;
+        padding: 8px 12px;
+        border-radius: 8px;
+    }
+    
+    .location-feedback.success {
+        background: #d1e7dd;
+        color: #0f5132;
+        border: 1px solid #badbcc;
+    }
+    
+    .location-feedback.error {
+        background: #f8d7da;
+        color: #842029;
+        border: 1px solid #f5c2c7;
+    }
+    
+    .location-feedback.loading {
+        background: #cfe2ff;
+        color: #084298;
+        border: 1px solid #b6d4fe;
+    }
+    
+    .location-icon {
+        transition: all 0.3s ease;
+    }
+    
+    .location-icon.found {
+        color: #198754;
+    }
+    
+    .location-icon.error {
+        color: #dc3545;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+
+        <div class="card border-0 shadow-lg">
+            <div class="card-body p-5">
+
+                <!-- HEADER -->
+                <h2 class="fw-bold mb-1">
+                    <i class="fas fa-file-alt text-primary"></i> Submit New Complaint
+                </h2>
+                <p class="text-muted mb-4">
+                    Raise civic issues transparently. Our AI ensures faster resolution.
+                </p>
+
+                <form method="POST" enctype="multipart/form-data" novalidate>
+
+                    <!-- TITLE -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Complaint Title *</label>
+                        <input type="text"
+                               class="form-control form-control-lg"
+                               name="title"
+                               placeholder="Brief title of your complaint"
+                               required>
+                        <small class="text-muted">e.g., Pothole on Main Street</small>
+                    </div>
+
+                    <!-- DESCRIPTION -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Description *</label>
+                        <textarea class="form-control"
+                                  name="description"
+                                  rows="5"
+                                  placeholder="Describe the issue in detail..."
+                                  required></textarea>
+                        <small class="text-muted">
+                            Clear details help authorities act faster
+                        </small>
+                    </div>
+
+                    <!-- CATEGORY -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Category *</label>
+                        <select class="form-select form-select-lg"
+                                name="category"
+                                required>
+                            <option value="">-- Select Category --</option>
+                            <option value="Roads">Roads & Transportation</option>
+                            <option value="Water">Water & Sewage</option>
+                            <option value="Electricity">Electricity</option>
+                            <option value="Waste">Waste Management</option>
+                            <option value="Parks">Parks & Recreation</option>
+                            <option value="Safety">Public Safety</option>
+                            <option value="Construction">Building & Construction</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+
+                    <!-- LOCATION -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">
+                            <i class="fas fa-map-marker-alt"></i> Location *
+                        </label>
+                        <div class="location-input-group">
+                            <input type="text"
+                                   id="locationInput"
+                                   class="form-control form-control-lg"
+                                   name="location"
+                                   placeholder="Enter specific location or address..."
+                                   required
+                                   autocomplete="off">
+                            <div id="locationFeedback"></div>
+                        </div>
+                        
+                        <!-- Location Map -->
+                        <div id="locationMap"></div>
+                    </div>
+
+                    <!-- COORDINATES -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Latitude</label>
+                            <input type="number"
+                                   class="form-control"
+                                   name="latitude"
+                                   step="0.0001"
+                                   placeholder="12.9716">
+                            <small class="text-muted">Optional</small>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Longitude</label>
+                            <input type="number"
+                                   class="form-control"
+                                   name="longitude"
+                                   step="0.0001"
+                                   placeholder="77.5946">
+                            <small class="text-muted">Optional</small>
+                        </div>
+                    </div>
+
+                    <!-- IMAGE -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Upload Image</label>
+                        <input type="file"
+                               class="form-control form-control-lg"
+                               id="image"
+                               name="image"
+                               accept="image/*">
+                        <small class="text-muted">
+                            JPG, PNG, GIF • Max 5MB
+                        </small>
+                        <div id="imagePreview"></div>
+                    </div>
+
+                    <!-- SUBMIT -->
+                    <div class="mb-4">
+                        <button type="submit"
+                                class="btn btn-primary btn-lg w-100">
+                            <i class="fas fa-paper-plane"></i> Submit Complaint
+                        </button>
+                    </div>
+
+                    <!-- AI INFO -->
+                    <div class="alert ai-hint small">
+                        <i class="fas fa-brain text-primary"></i>
+                        Our AI automatically analyzes your complaint to detect urgency,
+                        assign departments, and prevent duplicates.
+                    </div>
+
+                </form>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
+<script>
+// Global map instance
+let locationMap = null;
+let mapMarker = null;
+let geocodeTimeout = null;
+
+console.log('Location script loaded');
+
+// Initialize location map
+function initializeLocationMap() {
+    console.log('Initializing location map...');
+    
+    if (!locationMap) {
+        const mapElement = document.getElementById('locationMap');
+        
+        if (!mapElement) {
+            console.error('Map element not found!');
+            return;
+        }
+        
+        try {
+            locationMap = L.map(mapElement).setView([20.5937, 78.9629], 5);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 19
+            }).addTo(locationMap);
+            
+            console.log('Map initialized successfully');
+            
+            // Add click handler to map to set coordinates
+            locationMap.on('click', function(e) {
+                console.log('Map clicked at:', e.latlng);
+                setLocationFromCoordinates(e.latlng.lat, e.latlng.lng);
+            });
+        } catch (error) {
+            console.error('Error initializing map:', error);
+        }
+    }
+}
+
+// Set location from coordinates
+function setLocationFromCoordinates(lat, lng) {
+    console.log('Setting location from coordinates:', lat, lng);
+    
+    const latInput = document.getElementById('latitude');
+    const lngInput = document.getElementById('longitude');
+    
+    if (latInput && lngInput) {
+        latInput.value = lat.toFixed(4);
+        lngInput.value = lng.toFixed(4);
+    }
+    
+    // Update marker
+    updateMapMarker(lat, lng);
+    
+    // Reverse geocode to get address
+    reverseGeocode(lat, lng);
+}
+
+// Update map marker
+function updateMapMarker(lat, lng) {
+    console.log('Updating map marker at:', lat, lng);
+    
+    initializeLocationMap();
+    
+    if (!locationMap) {
+        console.error('Map not initialized');
+        return;
+    }
+    
+    try {
+        if (mapMarker) {
+            mapMarker.setLatLng([lat, lng]);
+        } else {
+            mapMarker = L.marker([lat, lng], {
+                draggable: true,
+                opacity: 0.9
+            }).addTo(locationMap);
+            
+            // Update on drag
+            mapMarker.on('dragend', function() {
+                const newLatLng = mapMarker.getLatLng();
+                console.log('Marker dragged to:', newLatLng);
+                setLocationFromCoordinates(newLatLng.lat, newLatLng.lng);
+            });
+        }
+        
+        // Clear previous circles
+        locationMap.eachLayer(function(layer) {
+            if (layer instanceof L.Circle) {
+                locationMap.removeLayer(layer);
+            }
+        });
+        
+        // Add circle to show approximate area
+        L.circle([lat, lng], {
+            color: '#0d6efd',
+            fillColor: '#0d6efd',
+            fillOpacity: 0.1,
+            radius: 100
+        }).addTo(locationMap);
+        
+        locationMap.setView([lat, lng], 17);
+        console.log('Map marker updated successfully');
+        
+    } catch (error) {
+        console.error('Error updating marker:', error);
+    }
+}
+
+// Geocode location (get coordinates from address)
+function geocodeLocation(locationText) {
+    console.log('Geocoding location:', locationText);
+    
+    if (!locationText.trim()) {
+        showLocationFeedback('', 'error');
+        return;
+    }
+    
+    showLocationFeedback('🔍 Searching location...', 'loading');
+    
+    // Use OpenStreetMap Nominatim API for geocoding
+    const encodedLocation = encodeURIComponent(locationText);
+    const apiUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodedLocation}&limit=1&countrycodes=IN`;
+    
+    console.log('API URL:', apiUrl);
+    
+    fetch(apiUrl, {
+        headers: {
+            'Accept': 'application/json'
+        }
+    })
+        .then(response => {
+            console.log('Response status:', response.status);
+            return response.json();
+        })
+        .then(data => {
+            console.log('Geocoding response:', data);
+            
+            if (data && data.length > 0) {
+                const result = data[0];
+                const lat = parseFloat(result.lat);
+                const lng = parseFloat(result.lon);
+                
+                console.log('Location found:', lat, lng);
+                
+                // Update form fields
+                const latInput = document.getElementById('latitude');
+                const lngInput = document.getElementById('longitude');
+                
+                if (latInput && lngInput) {
+                    latInput.value = lat.toFixed(4);
+                    lngInput.value = lng.toFixed(4);
+                }
+                
+                // Update map
+                updateMapMarker(lat, lng);
+                
+                // Show map
+                const mapElement = document.getElementById('locationMap');
+                if (mapElement) {
+                    mapElement.classList.add('active');
+                }
+                
+                // Show success feedback
+                const displayName = result.display_name.substring(0, 60);
+                showLocationFeedback(`✅ Location found: ${displayName}`, 'success');
+            } else {
+                console.log('No location found for:', locationText);
+                showLocationFeedback('❌ Location not found. Please try a different address.', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Geocoding error:', error);
+            showLocationFeedback('❌ Error fetching location. Try again or use manual coordinates.', 'error');
+        });
+}
+
+// Reverse geocode (get address from coordinates)
+function reverseGeocode(lat, lng) {
+    console.log('Reverse geocoding:', lat, lng);
+    
+    const apiUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`;
+    
+    fetch(apiUrl, {
+        headers: {
+            'Accept': 'application/json'
+        }
+    })
+        .then(response => response.json())
+        .then(data => {
+            console.log('Reverse geocoding response:', data);
+            
+            if (data && data.address) {
+                const address = data.address.road || data.address.village || data.address.city || data.address.county;
+                if (address) {
+                    console.log('Address found:', address);
+                }
+            }
+        })
+        .catch(error => console.error('Reverse geocoding error:', error));
+}
+
+// Show location feedback
+function showLocationFeedback(message, type) {
+    const feedbackEl = document.getElementById('locationFeedback');
+    
+    if (!feedbackEl) {
+        console.error('Feedback element not found');
+        return;
+    }
+    
+    if (!message) {
+        feedbackEl.innerHTML = '';
+        return;
+    }
+    
+    feedbackEl.className = `location-feedback ${type}`;
+    feedbackEl.innerHTML = message;
+    console.log('Feedback shown:', message, type);
+}
+
+// Wait for DOM to be ready
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, setting up event listeners');
+    
+    const locationInput = document.getElementById('locationInput');
+    
+    if (!locationInput) {
+        console.error('Location input not found!');
+        return;
+    }
+    
+    // Real-time location input handler with debounce
+    locationInput.addEventListener('input', function(e) {
+        const locationText = e.target.value;
+        console.log('Location input changed:', locationText);
+        
+        // Clear previous timeout
+        if (geocodeTimeout) {
+            clearTimeout(geocodeTimeout);
+        }
+        
+        // Show loading only if text is long enough
+        if (locationText.length > 3) {
+            // Debounce: wait 800ms before geocoding
+            geocodeTimeout = setTimeout(() => {
+                console.log('Timeout fired, geocoding...');
+                geocodeLocation(locationText);
+            }, 800);
+        } else {
+            showLocationFeedback('', 'error');
+            if (locationMap) {
+                locationMap.remove();
+                locationMap = null;
+                mapMarker = null;
+            }
+            const mapElement = document.getElementById('locationMap');
+            if (mapElement) {
+                mapElement.classList.remove('active');
+            }
+        }
+    });
+    
+    // Show map when location is selected
+    locationInput.addEventListener('focus', function() {
+        if (this.value.length > 3) {
+            const mapElement = document.getElementById('locationMap');
+            if (mapElement) {
+                mapElement.classList.add('active');
+            }
+        }
+    });
+    
+    // Handle latitude/longitude manual input
+    const latInput = document.getElementById('latitude');
+    const lngInput = document.getElementById('longitude');
+    
+    if (latInput && lngInput) {
+        latInput.addEventListener('change', function() {
+            const lat = parseFloat(this.value);
+            const lng = parseFloat(lngInput.value);
+            
+            if (lat && lng && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+                console.log('Latitude changed, updating map');
+                updateMapMarker(lat, lng);
+            }
+        });
+        
+        lngInput.addEventListener('change', function() {
+            const lat = parseFloat(latInput.value);
+            const lng = parseFloat(this.value);
+            
+            if (lat && lng && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+                console.log('Longitude changed, updating map');
+                updateMapMarker(lat, lng);
+            }
+        });
+    }
+    
+    // Image preview functionality
+    const imageInput = document.getElementById('image');
+    if (imageInput) {
+        imageInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    document.getElementById('imagePreview').innerHTML =
+                        '<img src="' + event.target.result + '" class="img-fluid">';
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

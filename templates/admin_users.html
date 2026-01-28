@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Users - CivicPulse Admin{% endblock %}
+
+{% block extra_css %}
+<style>
+    body {
+        background: #f4f7fb;
+    }
+
+    .card {
+        border-radius: 18px;
+        transition: all 0.3s ease;
+    }
+
+    .card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 18px 40px rgba(0,0,0,0.08);
+    }
+
+    .table {
+        background: white;
+        border-radius: 16px;
+        overflow: hidden;
+    }
+
+    thead th {
+        font-weight: 600;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+
+    tbody tr {
+        transition: all 0.25s ease;
+    }
+
+    tbody tr:hover {
+        background-color: #f1f5ff;
+    }
+
+    .badge {
+        border-radius: 12px;
+        padding: 0.45em 0.7em;
+        font-size: 0.75rem;
+    }
+
+    .btn {
+        border-radius: 30px;
+        padding: 6px 14px;
+        font-size: 0.85rem;
+    }
+
+    .empty-state i {
+        opacity: 0.4;
+    }
+
+    .user-badge {
+        display: inline-block;
+        padding: 0.35em 0.65em;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- HEADER -->
+<div class="row mb-4 align-items-center">
+    <div class="col-md-9">
+        <h2 class="fw-bold mb-1">
+            <i class="fas fa-users text-primary"></i> User Management
+        </h2>
+        <p class="text-muted mb-0">
+            Manage system users and their privileges
+        </p>
+    </div>
+
+    <div class="col-md-3 text-end">
+        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Back
+        </a>
+    </div>
+</div>
+
+<!-- USERS TABLE -->
+{% if users %}
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white border-bottom">
+        <h5 class="mb-0"><i class="fas fa-list"></i> All Users ({{ users|length }})</h5>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-primary">
+                <tr>
+                    <th>ID</th>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Full Name</th>
+                    <th>Role</th>
+                    <th>Joined</th>
+                    <th class="text-center">Actions</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for user in users %}
+                <tr>
+                    <td><strong>#{{ user[0] }}</strong></td>
+                    <td><code>{{ user[1] }}</code></td>
+                    <td>{{ user[2] }}</td>
+                    <td>{{ user[3] }}</td>
+                    <td>
+                        {% if user[5] == 1 %}
+                            <span class="badge bg-danger">Admin</span>
+                        {% else %}
+                            <span class="badge bg-secondary">User</span>
+                        {% endif %}
+                    </td>
+                    <td><small class="text-muted">{{ user[4][:10] }}</small></td>
+                    <td class="text-center">
+                        <button class="btn btn-sm btn-outline-info" 
+                                onclick="toggleAdmin({{ user[0] }}, '{{ user[1] }}', {{ user[5] }})"
+                                {% if user[0] == session.user_id %}disabled{% endif %}>
+                            <i class="fas fa-shield-alt"></i> 
+                            {{ "Revoke Admin" if user[5] == 1 else "Make Admin" }}
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" 
+                                onclick="deleteUserConfirm({{ user[0] }}, '{{ user[1] }}')"
+                                {% if user[0] == session.user_id %}disabled{% endif %}>
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="card border-0 shadow-sm text-center py-5 empty-state">
+    <i class="fas fa-users fa-3x mb-3 text-muted"></i>
+    <h4>No Users Found</h4>
+    <p class="text-muted">There are no users in the system.</p>
+</div>
+{% endif %}
+
+<!-- SCRIPTS -->
+<script>
+function toggleAdmin(userId, username, isAdmin) {
+    if (confirm(`Are you sure you want to ${isAdmin ? 'revoke admin privileges' : 'make admin'} for ${username}?`)) {
+        fetch(`/admin/user/${userId}/toggle-admin`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            }
+        })
+        .then(r => r.json())
+        .then(d => {
+            if (d.success) {
+                showToast(`Admin privileges ${isAdmin ? 'revoked' : 'granted'} successfully`, 'success');
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showToast(d.error || 'Failed to update user', 'danger');
+            }
+        })
+        .catch(e => showToast('Server error occurred', 'danger'));
+    }
+}
+
+function deleteUserConfirm(userId, username) {
+    if (confirm(`⚠️ Are you sure you want to delete user "${username}"? This action cannot be undone!`)) {
+        fetch(`/admin/user/${userId}/delete`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            }
+        })
+        .then(r => r.json())
+        .then(d => {
+            if (d.success) {
+                showToast('User deleted successfully', 'success');
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showToast(d.error || 'Failed to delete user', 'danger');
+            }
+        })
+        .catch(e => showToast('Server error occurred', 'danger'));
+    }
+}
+
+function showToast(msg, type) {
+    const toast = document.createElement("div");
+    toast.className = `alert alert-${type} position-fixed top-0 end-0 m-4 shadow`;
+    toast.style.zIndex = 9999;
+    toast.style.minWidth = "300px";
+    toast.innerHTML = `
+        <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'} me-2"></i>
+        ${msg}
+        <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
+    `;
+    document.body.appendChild(toast);
+    setTimeout(() => {
+        if (toast.parentElement) toast.remove();
+    }, 3000);
+}
+</script>
+
+{% endblock %}

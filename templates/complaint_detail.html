@@ -1,0 +1,340 @@
+{% extends "base.html" %}
+
+{% block title %}Complaint #{{ complaint[0] }} - CivicPulse{% endblock %}
+
+{% block extra_css %}
+<style>
+    body {
+        background: #f4f7fb;
+    }
+
+    .card {
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(8px);
+        transition: all 0.3s ease;
+    }
+
+    .card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.08);
+    }
+
+    h2, h5 {
+        letter-spacing: -0.4px;
+    }
+
+    .badge {
+        padding: 0.45em 0.75em;
+        font-size: 0.8rem;
+        border-radius: 12px;
+    }
+
+    img {
+        transition: transform 0.4s ease;
+    }
+
+    img:hover {
+        transform: scale(1.03);
+    }
+
+    /* Timeline */
+    .status-timeline {
+        position: relative;
+        padding-left: 20px;
+    }
+
+    .timeline-item {
+        position: relative;
+        padding-left: 35px;
+        margin-bottom: 30px;
+    }
+
+    .timeline-item::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 4px;
+        width: 14px;
+        height: 14px;
+        background: linear-gradient(135deg, #007bff, #00c6ff);
+        border-radius: 50%;
+        z-index: 2;
+    }
+
+    .timeline-item::after {
+        content: '';
+        position: absolute;
+        left: 6px;
+        top: 20px;
+        width: 2px;
+        height: 100%;
+        background: #dee2e6;
+        z-index: 1;
+    }
+
+    .timeline-item:last-child::after {
+        display: none;
+    }
+
+    /* Buttons */
+    .btn-outline-success {
+        border-radius: 30px;
+        padding: 8px 18px;
+        transition: all 0.3s ease;
+    }
+
+    .btn-outline-success:hover {
+        background: linear-gradient(135deg, #28a745, #20c997);
+        color: #fff;
+        border-color: transparent;
+    }
+
+    /* Progress bar */
+    .progress {
+        height: 10px;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    .progress-bar {
+        border-radius: 10px;
+    }
+
+    /* List hover */
+    .list-group-item {
+        border-radius: 12px;
+        margin-bottom: 8px;
+        border: none;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        transition: all 0.3s ease;
+    }
+
+    .list-group-item:hover {
+        transform: translateX(5px);
+        background: #f8f9fa;
+    }
+
+    /* Comments */
+    .comments-list .card {
+        border-radius: 14px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4 align-items-center">
+    <div class="col-md-8">
+        <h2 class="fw-bold mb-1">{{ complaint[2] }}</h2>
+        <p class="text-muted small mb-0">
+            Transparent civic issue tracking powered by CivicPulse
+        </p>
+        <small class="text-muted">
+            <i class="fas fa-calendar"></i> Submitted on {{ complaint[14] | default('N/A') }}
+        </small>
+    </div>
+    <div class="col-md-4 text-end">
+        {% if session.get('user_id') == complaint[1] or session.get('is_admin') %}
+            <span class="badge bg-success">Your Complaint</span>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- MAIN CONTENT -->
+    <div class="col-lg-8">
+
+        <!-- Complaint Details -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <h5 class="fw-bold mb-3">
+                    <i class="fas fa-clipboard-list text-primary"></i> Complaint Details
+                </h5>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <p class="text-muted mb-1">Category</p>
+                        <span class="badge bg-info">{{ complaint[4] }}</span>
+                    </div>
+                    <div class="col-md-6">
+                        <p class="text-muted mb-1">Priority</p>
+                        {% if complaint[11] == 'High' %}
+                            <span class="badge bg-danger">{{ complaint[11] }}</span>
+                        {% elif complaint[11] == 'Medium' %}
+                            <span class="badge bg-warning">{{ complaint[11] }}</span>
+                        {% else %}
+                            <span class="badge bg-info">{{ complaint[11] }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <p class="text-muted mb-1">Status</p>
+                        {% if complaint[10] == 'Resolved' %}
+                            <span class="badge bg-success">{{ complaint[10] }}</span>
+                        {% elif complaint[10] == 'In Progress' %}
+                            <span class="badge bg-warning">{{ complaint[10] }}</span>
+                        {% elif complaint[10] == 'In Review' %}
+                            <span class="badge bg-primary">{{ complaint[10] }}</span>
+                        {% else %}
+                            <span class="badge bg-secondary">{{ complaint[10] }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <p class="text-muted mb-1">Upvotes</p>
+                        <span class="fw-bold text-success">
+                            <i class="fas fa-thumbs-up"></i> {{ complaint[12] }}
+                        </span>
+                    </div>
+                </div>
+
+                <hr>
+
+                <p class="text-muted mb-1">Location</p>
+                <p class="fw-bold">{{ complaint[6] }}</p>
+
+                <p class="text-muted mb-1">Description</p>
+                <p>{{ complaint[3] }}</p>
+
+                {% if complaint[9] %}
+                <hr>
+                <p class="text-muted mb-2">Attached Image</p>
+                <img src="{{ url_for('static', filename=complaint[9]) }}"
+                     class="img-fluid rounded shadow-sm"
+                     style="max-height: 420px;">
+                {% endif %}
+
+                <hr>
+                <button class="btn btn-outline-success"
+                        onclick="upvoteComplaint({{ complaint[0] }})">
+                    <i class="fas fa-thumbs-up"></i> Upvote This Complaint
+                </button>
+            </div>
+        </div>
+
+        <!-- AI INSIGHTS -->
+        {% if ai_prediction %}
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <h5 class="fw-bold mb-3">
+                    <i class="fas fa-brain text-primary"></i> AI-Powered Insights
+                </h5>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <p class="text-muted mb-1">Predicted Category</p>
+                        <span class="badge bg-primary">{{ ai_prediction[2] }}</span>
+                        <small class="text-muted d-block mt-1">
+                            Confidence: {{ (ai_prediction[6] * 100) | round(1) }}%
+                        </small>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <p class="text-muted mb-1">Predicted Priority</p>
+                        <span class="badge bg-warning">{{ ai_prediction[3] }}</span>
+                    </div>
+                </div>
+
+                {% if ai_prediction[4] %}
+                <p class="text-muted mb-1">Spam Score</p>
+                <div class="progress">
+                    <div class="progress-bar
+                        {% if ai_prediction[4] > 0.7 %}bg-danger
+                        {% elif ai_prediction[4] > 0.4 %}bg-warning
+                        {% else %}bg-success{% endif %}"
+                        style="width: {{ ai_prediction[4] * 100 }}%">
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- COMMENTS -->
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h5 class="fw-bold mb-3">
+                    <i class="fas fa-comments text-primary"></i> Updates & Comments
+                </h5>
+
+                {% if comments %}
+                <div class="comments-list">
+                    {% for comment in comments %}
+                    <div class="card mb-2 bg-light border-0">
+                        <div class="card-body py-3">
+                            <div class="d-flex justify-content-between">
+                                <strong>{{ comment[3] if comment[3] else 'Anonymous' }}</strong>
+                                {% if comment[5] %}
+                                <span class="badge bg-success">Official</span>
+                                {% endif %}
+                            </div>
+                            <small class="text-muted">{{ comment[6] }}</small>
+                            <p class="mt-2 mb-0">{{ comment[3] }}</p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted">No comments yet</p>
+                {% endif %}
+            </div>
+        </div>
+
+    </div>
+
+    <!-- SIDEBAR -->
+    <div class="col-lg-4">
+
+        <!-- STATUS HISTORY -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <h5 class="fw-bold mb-3">
+                    <i class="fas fa-history text-primary"></i> Status History
+                </h5>
+
+                {% if status_history %}
+                <div class="status-timeline">
+                    {% for log in status_history %}
+                    <div class="timeline-item">
+                        <p class="mb-1 fw-bold">{{ log[3] }}</p>
+                        <small class="text-muted">{{ log[6] }}</small>
+                        {% if log[5] %}
+                        <p class="small bg-white p-2 rounded mt-2">{{ log[5] }}</p>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted">Awaiting first update</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- REPORTED BY -->
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h5 class="fw-bold mb-3">
+                    <i class="fas fa-user text-primary"></i> Reported By
+                </h5>
+                <p class="fw-bold mb-1">{{ complaint[16] }}</p>
+                <small class="text-muted">{{ complaint[17] }}</small>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+function upvoteComplaint(complaintId) {
+    fetch('{{ url_for("upvote_complaint", id=0) }}'.replace('0', complaintId))
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.error || "Upvote failed");
+        }
+    });
+}
+</script>
+{% endblock %}

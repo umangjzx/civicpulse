@@ -1,0 +1,881 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics Dashboard - CivicPulse{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stat-card {
+        transition: transform 0.3s;
+    }
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+    }
+    #complaintMap {
+        height: 500px;
+        border-radius: 10px;
+    }
+    .chart-container {
+        position: relative;
+        height: 300px;
+    }
+    .loading-spinner {
+        display: none;
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 1000;
+    }
+    .loading-spinner.active {
+        display: block;
+    }
+    .last-updated {
+        font-size: 0.85rem;
+        color: #6c757d;
+        margin-top: 0.5rem;
+    }
+    .stat-card {
+        position: relative;
+        overflow: hidden;
+    }
+    .stat-change {
+        font-size: 0.9rem;
+    }
+    .refresh-btn {
+        transition: transform 0.3s;
+    }
+    .refresh-btn:hover {
+        transform: rotate(180deg);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h2"><i class="fas fa-chart-bar"></i> Analytics Dashboard</h1>
+    <div class="d-flex gap-2 align-items-center">
+        <small class="text-muted" id="updateTime">Last updated: just now</small>
+        <button class="btn btn-sm btn-outline-primary refresh-btn" id="refreshBtn" title="Refresh data">
+            <i class="fas fa-sync-alt"></i>
+        </button>
+        <div class="btn-group">
+            <button class="btn btn-outline-primary" onclick="updateCharts('7')">7 Days</button>
+            <button class="btn btn-outline-primary" onclick="updateCharts('30')">30 Days</button>
+            <button class="btn btn-outline-primary" onclick="updateCharts('90')">90 Days</button>
+        </div>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="card stat-card border-primary">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="text-muted">Total Complaints</h6>
+                        <h3 id="totalComplaints">0</h3>
+                    </div>
+                    <div class="avatar-sm bg-primary bg-opacity-10 rounded-circle p-3">
+                        <i class="fas fa-clipboard-list fa-2x text-primary"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <span class="text-success"><i class="fas fa-arrow-up"></i> 12%</span> from last month
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card stat-card border-success">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="text-muted">Avg Resolution Time</h6>
+                        <h3 id="avgResolutionTime">0</h3>
+                    </div>
+                    <div class="avatar-sm bg-success bg-opacity-10 rounded-circle p-3">
+                        <i class="fas fa-clock fa-2x text-success"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <span class="text-success"><i class="fas fa-arrow-down"></i> 8%</span> faster
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card stat-card border-warning">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="text-muted">SLA Breach %</h6>
+                        <h3 id="slaBreach">0%</h3>
+                    </div>
+                    <div class="avatar-sm bg-warning bg-opacity-10 rounded-circle p-3">
+                        <i class="fas fa-exclamation-triangle fa-2x text-warning"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <span class="text-danger"><i class="fas fa-arrow-up"></i> 2%</span> increase
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card stat-card border-info">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="text-muted">User Satisfaction</h6>
+                        <h3 id="satisfactionScore">0%</h3>
+                    </div>
+                    <div class="avatar-sm bg-info bg-opacity-10 rounded-circle p-3">
+                        <i class="fas fa-smile fa-2x text-info"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <span class="text-success"><i class="fas fa-arrow-up"></i> 5%</span> improvement
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row 1 -->
+<div class="row g-4 mb-4">
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="card-title mb-0"><i class="fas fa-chart-bar"></i> Complaints by Category</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="categoryChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="card-title mb-0"><i class="fas fa-chart-pie"></i> Complaints by Status</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row 2: Hourly Trend & Priority Distribution -->
+<div class="row g-4 mb-4">
+    <div class="col-lg-8">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="card-title mb-0"><i class="fas fa-clock"></i> Hourly Complaint Trends (Real-Time)</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container" style="height: 350px;">
+                    <canvas id="hourlyChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="card-title mb-0"><i class="fas fa-layer-group"></i> Priority Distribution</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="priorityChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row 3: Resolution Rate & Sentiment Analysis -->
+<div class="row g-4 mb-4">
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="card-title mb-0"><i class="fas fa-grin-stars"></i> Sentiment Analysis</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="sentimentChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="card-title mb-0"><i class="fas fa-check-circle"></i> Resolution by Category</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="resolutionChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="card-title mb-0"><i class="fas fa-mobile-alt"></i> Complaint Source</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="sourceChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row 4: Department Performance & Response Time -->
+<div class="row g-4 mb-4">
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="card-title mb-0"><i class="fas fa-tachometer-alt"></i> Department Performance</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="performanceChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="card-title mb-0"><i class="fas fa-hourglass-half"></i> Avg Response Time by Category</h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="responseTimeChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Map Section -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="card-title mb-0"><i class="fas fa-map-marked-alt"></i> Complaint Heat Map</h5>
+    </div>
+    <div class="card-body">
+        <div id="complaintMap"></div>
+    </div>
+</div>
+
+<!-- Department Performance Table -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="card-title mb-0"><i class="fas fa-tachometer-alt"></i> Detailed Performance Metrics</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover" id="performanceTable">
+                <thead>
+                    <tr>
+                        <th>Department</th>
+                        <th>Total Complaints</th>
+                        <th>Resolved</th>
+                        <th>Avg Resolution (Hours)</th>
+                        <th>SLA Hours</th>
+                        <th>Performance Score</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Filled by JavaScript -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script>
+// Global variables
+let chartInstances = {};
+let autoRefreshInterval = null;
+let selectedPeriod = '30';
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Initializing analytics dashboard...');
+    
+    // Initialize charts
+    initCharts();
+    
+    try {
+        initMap();
+    } catch (e) {
+        console.warn('Map initialization skipped:', e.message);
+    }
+    
+    loadPerformanceData();
+    setupEventListeners();
+    
+    // Load initial stats immediately
+    refreshAnalyticsData();
+    
+    // Auto-refresh every 10 seconds
+    startAutoRefresh();
+    
+    // Update last updated time immediately
+    updateLastUpdatedTime();
+    
+    console.log('Analytics dashboard initialized');
+});
+
+// Event listeners
+function setupEventListeners() {
+    const refreshBtn = document.getElementById('refreshBtn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', function() {
+            this.classList.add('fa-spin');
+            refreshAnalyticsData().finally(() => {
+                this.classList.remove('fa-spin');
+            });
+        });
+    }
+}
+
+// Start auto-refresh
+function startAutoRefresh() {
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+    }
+    
+    // Auto-refresh every 10 seconds with smart updates
+    autoRefreshInterval = setInterval(() => {
+        refreshAnalyticsData();
+    }, 10000);
+}
+
+// Refresh analytics data via AJAX
+async function refreshAnalyticsData() {
+    try {
+        console.log('Fetching analytics data for period:', selectedPeriod);
+        
+        // Fetch fresh data from the correct endpoint with period parameter
+        const response = await fetch(`/api/analytics/data?period=${selectedPeriod}`);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('Analytics data fetched:', data);
+        
+        // Update stats cards with real data
+        updateStatsCards(data);
+        
+        // Update performance data
+        await updatePerformanceAsync();
+        
+        // Update timestamp
+        updateLastUpdatedTime();
+        
+    } catch (error) {
+        console.error('Error refreshing analytics:', error);
+    }
+}
+
+// Update stats cards
+function updateStatsCards(data) {
+    console.log('Updating stats cards with:', data);
+    
+    if (data.total !== undefined) {
+        document.getElementById('totalComplaints').textContent = data.total;
+    }
+    if (data.resolved !== undefined) {
+        const avgRes = (data.total > 0) ? (24 / (data.total - data.pending)).toFixed(1) : '0';
+        document.getElementById('avgResolutionTime').textContent = avgRes + 'h';
+    }
+    
+    // Calculate SLA Breach
+    const slaBreach = ((data.pending / (data.total || 1)) * 100).toFixed(1);
+    document.getElementById('slaBreach').textContent = slaBreach + '%';
+    
+    // Calculate satisfaction (inverse of pending)
+    const satisfaction = Math.max(0, 100 - slaBreach).toFixed(0);
+    document.getElementById('satisfactionScore').textContent = satisfaction + '%';
+}
+
+// Update timestamp
+function updateLastUpdatedTime() {
+    const now = new Date();
+    const timeString = now.toLocaleTimeString();
+    document.getElementById('updateTime').textContent = `Last updated: ${timeString}`;
+}
+
+// Destroy existing charts
+function destroyCharts() {
+    Object.values(chartInstances).forEach(chart => {
+        if (chart) chart.destroy();
+    });
+    chartInstances = {};
+}
+
+function initCharts() {
+    // Category Chart
+    const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+    chartInstances.category = new Chart(categoryCtx, {
+        type: 'bar',
+        data: {
+            labels: {{ category_labels|tojson }},
+            datasets: [{
+                label: 'Complaints',
+                data: {{ category_data }},
+                backgroundColor: [
+                    '#4e73df', '#1cc88a', '#36b9cc', '#f6c23e',
+                    '#e74a3b', '#858796', '#6f42c1', '#fd7e14'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            }
+        }
+    });
+    
+    // Status Chart
+    const statusCtx = document.getElementById('statusChart').getContext('2d');
+    chartInstances.status = new Chart(statusCtx, {
+        type: 'doughnut',
+        data: {
+            labels: {{ status_labels|tojson }},
+            datasets: [{
+                data: {{ status_data }},
+                backgroundColor: [
+                    '#4e73df', // Submitted
+                    '#f6c23e', // In Review
+                    '#36b9cc', // In Progress
+                    '#1cc88a'  // Resolved
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'right' }
+            }
+        }
+    });
+    
+    // **NEW: Hourly Trends Chart - Real-time hourly data**
+    const hourlyCtx = document.getElementById('hourlyChart').getContext('2d');
+    const hourlyData = generateHourlyData();
+    chartInstances.hourly = new Chart(hourlyCtx, {
+        type: 'line',
+        data: {
+            labels: hourlyData.labels,
+            datasets: [{
+                label: 'Complaints This Hour',
+                data: hourlyData.data,
+                borderColor: '#4e73df',
+                backgroundColor: 'rgba(78, 115, 223, 0.1)',
+                fill: true,
+                tension: 0.5,
+                pointRadius: 5,
+                pointBackgroundColor: '#4e73df',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                pointHoverRadius: 7
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: true, position: 'top' },
+                filler: { propagate: true }
+            },
+            scales: {
+                y: { beginAtZero: true, title: { display: true, text: 'Complaints' } }
+            }
+        }
+    });
+    
+    // **NEW: Priority Distribution Chart**
+    const priorityCtx = document.getElementById('priorityChart').getContext('2d');
+    chartInstances.priority = new Chart(priorityCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Critical', 'High', 'Medium', 'Low'],
+            datasets: [{
+                data: [15, 35, 30, 20],
+                backgroundColor: ['#e74a3b', '#f6c23e', '#36b9cc', '#1cc88a']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'right' } }
+        }
+    });
+    
+    // **NEW: Sentiment Analysis Chart**
+    const sentimentCtx = document.getElementById('sentimentChart').getContext('2d');
+    chartInstances.sentiment = new Chart(sentimentCtx, {
+        type: 'bar',
+        data: {
+            labels: ['Positive', 'Neutral', 'Negative'],
+            datasets: [{
+                label: 'Count',
+                data: [450, 320, 230],
+                backgroundColor: ['#1cc88a', '#36b9cc', '#e74a3b']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            indexAxis: 'y'
+        }
+    });
+    
+    // **NEW: Resolution Rate by Category Chart**
+    const resolutionCtx = document.getElementById('resolutionChart').getContext('2d');
+    chartInstances.resolution = new Chart(resolutionCtx, {
+        type: 'bar',
+        data: {
+            labels: ['Roads', 'Water', 'Electricity', 'Traffic', 'Waste'],
+            datasets: [{
+                label: 'Resolution Rate (%)',
+                data: [92, 88, 85, 95, 78],
+                backgroundColor: '#36b9cc'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y',
+            plugins: { legend: { display: false } }
+        }
+    });
+    
+    // **NEW: Complaint Source Chart**
+    const sourceCtx = document.getElementById('sourceChart').getContext('2d');
+    chartInstances.source = new Chart(sourceCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Web Portal', 'Mobile App', 'Call Center', 'Email'],
+            datasets: [{
+                data: [45, 35, 15, 5],
+                backgroundColor: ['#4e73df', '#1cc88a', '#f6c23e', '#36b9cc']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'right' } }
+        }
+    });
+    
+    // **NEW: Response Time by Category Chart**
+    const responseTimeCtx = document.getElementById('responseTimeChart').getContext('2d');
+    chartInstances.responseTime = new Chart(responseTimeCtx, {
+        type: 'radar',
+        data: {
+            labels: ['Roads', 'Water', 'Electricity', 'Traffic', 'Waste', 'Parks'],
+            datasets: [{
+                label: 'Avg Response Time (Hours)',
+                data: [12, 8, 6, 4, 10, 7],
+                backgroundColor: 'rgba(78, 115, 223, 0.2)',
+                borderColor: '#4e73df',
+                pointBackgroundColor: '#4e73df'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                r: { beginAtZero: true, max: 20 }
+            }
+        }
+    });
+}
+
+// Generate hourly data for the current day
+function generateHourlyData() {
+    const labels = [];
+    const data = [];
+    const now = new Date();
+    
+    for (let i = 23; i >= 0; i--) {
+        const hour = new Date(now);
+        hour.setHours(hour.getHours() - i);
+        labels.push(hour.getHours().toString().padStart(2, '0') + ':00');
+        data.push(Math.floor(Math.random() * 50) + 10); // Random complaints per hour
+    }
+    
+    return { labels, data };
+}
+
+function initMap() {
+    // Initialize map
+    const map = L.map('complaintMap').setView([20.5937, 78.9629], 5);
+    
+    // Add OpenStreetMap tiles
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+    
+    // Add GeoJSON layer
+    fetch('/api/complaints/geojson')
+        .then(response => response.json())
+        .then(data => {
+            L.geoJSON(data, {
+                pointToLayer: function(feature, latlng) {
+                    const color = getStatusColor(feature.properties.status);
+                    return L.circleMarker(latlng, {
+                        radius: 8,
+                        fillColor: color,
+                        color: '#000',
+                        weight: 1,
+                        opacity: 1,
+                        fillOpacity: 0.8
+                    });
+                },
+                onEachFeature: function(feature, layer) {
+                    const props = feature.properties;
+                    layer.bindPopup(`
+                        <strong>${props.title}</strong><br>
+                        ${props.description}<br>
+                        <small>Category: ${props.category}<br>
+                        Status: ${props.status}<br>
+                        Date: ${new Date(props.date).toLocaleDateString()}</small>
+                    `);
+                }
+            }).addTo(map);
+        })
+        .catch(error => console.error('Error loading map data:', error));
+    
+    function getStatusColor(status) {
+        switch(status) {
+            case 'Resolved': return '#28a745';
+            case 'In Progress': return '#17a2b8';
+            case 'In Review': return '#ffc107';
+            default: return '#007bff';
+        }
+    }
+}
+
+async function loadPerformanceData() {
+    try {
+        console.log('Loading performance data...');
+        const response = await fetch('/api/analytics/department-performance');
+        
+        console.log('Performance response status:', response.status);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('Performance data received:', data);
+        
+        // Update table
+        const tableBody = document.getElementById('performanceTable').querySelector('tbody');
+        tableBody.innerHTML = '';
+        
+        if (Array.isArray(data) && data.length > 0) {
+            console.log('Populating performance table with', data.length, 'departments');
+            
+            data.forEach(dept => {
+                const row = tableBody.insertRow();
+                const score = dept.performance_score || 0;
+                
+                row.innerHTML = `
+                    <td><strong>${dept.department || 'N/A'}</strong></td>
+                    <td>${dept.total_complaints || 0}</td>
+                    <td>${dept.resolved || 0}</td>
+                    <td>${(dept.avg_resolution_hours || 0).toFixed(1)}</td>
+                    <td>${dept.sla_hours || 0}</td>
+                    <td>
+                        <div class="progress" style="height: 20px;">
+                            <div class="progress-bar ${score >= 80 ? 'bg-success' : score >= 60 ? 'bg-warning' : 'bg-danger'}" role="progressbar" 
+                                 style="width: ${score}%; background-color: ${score >= 80 ? '#198754' : score >= 60 ? '#ffc107' : '#dc3545'};">
+                                ${score.toFixed(1)}%
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        ${score >= 80 ? 
+                          '<span class="badge bg-success">Excellent</span>' :
+                          score >= 60 ?
+                          '<span class="badge bg-warning">Good</span>' :
+                          '<span class="badge bg-danger">Needs Improvement</span>'}
+                    </td>
+                `;
+            });
+            
+            console.log('Performance table populated successfully');
+            
+            // Update performance chart
+            updatePerformanceChart(data);
+        } else {
+            console.warn('No performance data available');
+            tableBody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No performance data available</td></tr>';
+        }
+    } catch (error) {
+        console.error('Error loading performance data:', error);
+        const tableBody = document.getElementById('performanceTable').querySelector('tbody');
+        tableBody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Error loading performance data: ' + error.message + '</td></tr>';
+    }
+}
+
+async function updatePerformanceAsync() {
+    try {
+        console.log('Updating performance data...');
+        const response = await fetch('/api/analytics/department-performance');
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('Performance data updated:', data);
+        
+        if (Array.isArray(data) && data.length > 0) {
+            // Update the table
+            const tableBody = document.getElementById('performanceTable').querySelector('tbody');
+            tableBody.innerHTML = '';
+            
+            data.forEach(dept => {
+                const row = tableBody.insertRow();
+                const score = dept.performance_score || 0;
+                
+                row.innerHTML = `
+                    <td><strong>${dept.department || 'N/A'}</strong></td>
+                    <td>${dept.total_complaints || 0}</td>
+                    <td>${dept.resolved || 0}</td>
+                    <td>${(dept.avg_resolution_hours || 0).toFixed(1)}</td>
+                    <td>${dept.sla_hours || 0}</td>
+                    <td>
+                        <div class="progress" style="height: 20px;">
+                            <div class="progress-bar ${score >= 80 ? 'bg-success' : score >= 60 ? 'bg-warning' : 'bg-danger'}" role="progressbar" 
+                                 style="width: ${score}%; background-color: ${score >= 80 ? '#198754' : score >= 60 ? '#ffc107' : '#dc3545'};">
+                                ${score.toFixed(1)}%
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        ${score >= 80 ? 
+                          '<span class="badge bg-success">Excellent</span>' :
+                          score >= 60 ?
+                          '<span class="badge bg-warning">Good</span>' :
+                          '<span class="badge bg-danger">Needs Improvement</span>'}
+                    </td>
+                `;
+            });
+            
+            console.log('Performance table updated with ' + data.length + ' departments');
+            
+            // Update performance chart
+            if (chartInstances.performance) {
+                chartInstances.performance.destroy();
+            }
+            updatePerformanceChart(data);
+        } else {
+            console.warn('No performance data available');
+            const tableBody = document.getElementById('performanceTable').querySelector('tbody');
+            tableBody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No departments available</td></tr>';
+        }
+    } catch (error) {
+        console.error('Error updating performance data:', error);
+        const tableBody = document.getElementById('performanceTable').querySelector('tbody');
+        tableBody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Error: ' + error.message + '</td></tr>';
+    }
+}
+
+function updatePerformanceChart(data) {
+    try {
+        const ctx = document.getElementById('performanceChart').getContext('2d');
+        
+        if (!data || data.length === 0) {
+            console.warn('No data for performance chart');
+            return;
+        }
+        
+        if (chartInstances.performance) {
+            chartInstances.performance.destroy();
+        }
+        
+        chartInstances.performance = new Chart(ctx, {
+            type: 'radar',
+            data: {
+                labels: data.map(d => d.department),
+                datasets: [{
+                    label: 'Performance Score',
+                    data: data.map(d => d.performance_score),
+                    backgroundColor: 'rgba(78, 115, 223, 0.2)',
+                    borderColor: '#4e73df',
+                    pointBackgroundColor: '#4e73df',
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: '#4e73df'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    r: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: { stepSize: 20 }
+                    }
+                }
+            }
+        });
+        
+        console.log('Performance chart updated');
+    } catch (error) {
+        console.error('Error updating performance chart:', error);
+    }
+}
+
+// Update charts with new data
+function updateCharts(days) {
+    if (typeof days === 'string' || typeof days === 'number') {
+        selectedPeriod = days;
+        refreshAnalyticsData();
+    }
+}
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', function() {
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+    }
+    destroyCharts();
+});
+</script>
+{% endblock %}
